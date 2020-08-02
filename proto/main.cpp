@@ -149,11 +149,12 @@ int main(int argc, char **argv) {
 	// Add physical_node to the path because reasons
 	{
 		udev_device *spidev_device;
-		std::string spidev_path = located_spi_path;
-		free(located_spi_path);
-		spidev_path += "/physical_node";
 
-		spidev_device = udev_device_new_from_syspath(udev, spidev_path.c_str());
+		char buf[strlen(located_spi_path)+1+strlen("/physical_node")];
+		strcpy(buf, located_spi_path);
+		strcat(buf, "/physical_node");
+
+		spidev_device = udev_device_new_from_syspath(udev, buf);
 		located_spi_path = strdup(udev_device_get_devnode(spidev_device));
 
 		udev_device_unref(spidev_device);
