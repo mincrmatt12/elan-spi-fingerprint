@@ -1,0 +1,53 @@
+registers:
+
+0x5 - gain
+0x6 - dac calibration
+0x0 - write protect?
+
+SPI Status:
+
+- bit 1: if unset, needs reset
+- bit 3: line is ready?
+- bit 7: is calibrated
+
+tyler's device seems to always be in state 0x81, or not reset is calibrated
+
+-----
+
+matching ideas:
+
+find stddev of image, if above 10000 there is probably fprint
+
+using background image: do difference, if lower, retake bg image
+			
+			with difference, do histogram clamp
+
+profit?
+
+perhaps take the swipe assembling technique from elan.c
+
+outputs a 96x96 image --> rotate
+
+---
+
+initialization: since we're missing gpio from acpi, we use HID:
+
+- search using hid vid/pid settings from registry? hardcoded?
+
+use SPI bus with normal fpinit flow
+
+--- 
+
+reset over hid:
+
+- find the thing
+- send it a feature report with id 0xe and length 4 with all zeros: should reset the target
+
+verify: did bit 0 go to 1?
+
+---
+
+finding spi info:
+
+- probably will use udev and tagging: ruleset or sometihng to detect the ACPI id ELAN7001, tag the spi device created with something, find that later from libudev.
+- HID device: /shrug

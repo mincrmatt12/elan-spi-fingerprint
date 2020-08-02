@@ -1,0 +1,313 @@
+// Main prototype for ELAN SPI sensors
+//
+// Uses minimal amounts of UDEV to try and find the sensor;
+//
+// NOTE: only tested against exactly one device, YMMV
+//
+// Licensed under GPLv2 (c) matthew mirvish 2020
+// ...nerds
+
+// For detecting devices
+#include <libudev.h>
+
+// For HID (resets the SPI device through touchpad)
+#include <linux/types.h>
+#include <linux/input.h>
+#include <linux/hidraw.h>
+
+// For SPI communication
+#include <linux/spi/spidev.h>
+
+// General stuff
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/fcntl.h>
+#include <sys/unistd.h>
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include <string>
+
+// Various tables copied directly from the WbfSpiDriver.dll file
+
+// Register tables for setting modes (calib + init)
+#include "regtable.h"
+
+// List of supported sensors
+#include "sensortable.h"
+
+// Sensor settings from the registry
+#include "hkeyvalue.h"
+
+// Helper routine for doing duplex
+auto SpiFullDuplex(int fd, uint8_t *rx_buffer, uint8_t *tx_buffer, size_t length) {
+	spi_ioc_transfer mesg;
+	memset(&mesg, 0, sizeof mesg);
+	mesg.len = length;
+	mesg.rx_buf = (__u64)rx_buffer;
+	mesg.tx_buf = (__u64)tx_buffer;
+
+	return ioctl(fd, SPI_IOC_MESSAGE(1), &mesg);
+}
+
+namespace elan {
+	// Get the "SPI Status" field
+	
+	template<uint8_t Idx>
+	uint8_t ReadGenericDevInfo(int fd) {
+		uint8_t cmd[3] = {
+			0xff, Idx, 0xff // this last byte is probably uninportant
+		};
+		uint8_t resp[3];
+		SpiFullDuplex(fd, resp, cmd, 3);
+		return resp[2];
+	}
+
+	inline uint8_t ReadSPIStatus(int fd) {return ReadGenericDevInfo<0x3>(fd);}
+	inline uint8_t ReadSensorVersion(int fd) {return ReadGenericDevInfo<0xa>(fd);}
+	inline uint8_t ReadSensorHeight(int fd) {return ReadGenericDevInfo<0x8>(fd) + 1;}
+	inline uint8_t ReadSensorWidth(int fd) {return ReadGenericDevInfo<0x9>(fd) + 1;}
+
+	uint8_t ReadRegister(int fd, uint8_t regId) {
+		uint8_t cmd[2] = {
+			static_cast<uint8_t>(regId | 0x40), // 0x40 bit == read register, 0x80 bit == write register
+			0x0 // padding
+		};
+		uint8_t resp[2];
+		SpiFullDuplex(fd, resp, cmd, 2);
+		return resp[1];
+	}
+
+	auto DoHidReset(const char *hidpath) {
+		// Send feature 0xe
+
+		int fd = open(hidpath, O_RDWR);
+		// TODO: check ok
+
+		uint8_t buf[5] = {
+			0xe,
+			0,
+			0,
+			0,
+			0
+		};
+
+		// See NotifyDriverViaHIDVendorDefineForReset
+		auto result = ioctl(fd, HIDIOCSFEATURE(5), buf);
+
+		printf("Result of ioctl for reset %d\n", result);
+
+		close(fd);
+		return result;
+	}
+}
+
+int main(int argc, char **argv) {
+	puts("Prototype starting...");
+	printf("Compiled with HKEY values : TP_VID %s; TP_PID %s; ACPI_ID %s\n", elan::TP_VID, elan::TP_PID, elan::ACPI_HID);
+
+	// Initialize libudev
+	puts("Creating libudev context");
+	udev* udev = udev_new();
+	if (!udev) {
+		puts("Failed to start udev");
+		return 1;
+	}
+
+	int located_spi = 0;
+	char *located_spi_path = nullptr;
+
+	udev_enumerate *enumerate_acpi = udev_enumerate_new(udev);
+	
+	// Tell it to match that
+	udev_enumerate_add_match_subsystem(enumerate_acpi, "acpi");
+	udev_enumerate_add_match_sysattr(enumerate_acpi, "hid", elan::ACPI_HID);
+
+	// Execute matching
+	udev_enumerate_scan_devices(enumerate_acpi);
+	{
+		udev_list_entry *devices, *dev_entry;
+		devices = udev_enumerate_get_list_entry(enumerate_acpi);
+		udev_list_entry_foreach(dev_entry, devices) {
+			++located_spi;
+
+			free(located_spi_path);
+			located_spi_path = strdup(udev_list_entry_get_name(dev_entry));
+			printf("Got entry %s\n", located_spi_path);
+		}
+	}
+
+	// Get the SPI device
+	if (located_spi != 1) {
+		puts("Unable to find a single ACPI entry for the SPI, is ACPI_ID set correctly?");
+		return 1;
+	}
+
+	// Add physical_node to the path because reasons
+	{
+		udev_device *spidev_device;
+		std::string spidev_path = located_spi_path;
+		free(located_spi_path);
+		spidev_path += "/physical_node";
+
+		spidev_device = udev_device_new_from_syspath(udev, spidev_path.c_str());
+		located_spi_path = strdup(udev_device_get_devnode(spidev_device));
+
+		udev_device_unref(spidev_device);
+	}
+	
+	// Delete acpi enumerator
+	udev_enumerate_unref(enumerate_acpi);
+	
+	// Enumerate hids
+	struct udev_enumerate *enumerate_hid = udev_enumerate_new(udev);
+	udev_enumerate_add_match_subsystem(enumerate_hid, "hidraw");
+	udev_enumerate_add_match_sysattr(enumerate_hid, "idVendor", elan::TP_VID);
+	udev_enumerate_add_match_sysattr(enumerate_hid, "idProduct", elan::TP_PID);
+
+	int located_hid = 0;
+	char * located_hid_path = nullptr;
+
+	// Execute matching
+	udev_enumerate_scan_devices(enumerate_hid);
+	{
+		struct udev_list_entry *devices, *dev_entry;
+		devices = udev_enumerate_get_list_entry(enumerate_hid);
+		udev_list_entry_foreach(dev_entry, devices) {
+			++located_hid;
+
+			const char *syspath = udev_list_entry_get_name(dev_entry);
+			printf("Got hid entry %s\n", syspath);
+
+			udev_device *dev = udev_device_new_from_syspath(udev, syspath);
+			free(located_hid_path);
+
+			located_hid_path = strdup(udev_device_get_devnode(dev));
+			udev_device_unref(dev);
+		}
+	}
+
+	if (located_hid != 1) {
+		puts("Unable to find a single HID entry, are TP_VID and TP_PID set correctly?");
+		return 1; //yes this leaks but what are you going to do about it, it returns right after anyways
+	}
+
+	// Ok, we now have a /dev/hidraw and /dev/spidev
+	printf("Got SPI = %s and HID = %s, opening.\n", located_spi_path, located_hid_path);
+
+	// Open the SPI first
+	int spi_fd = open(located_spi_path, O_RDWR);
+	if (spi_fd < 0) {
+		puts("Failed to open SPI, check permissions?");
+		return 2;
+	}
+
+	// ======== CBIOMETRICDEVICE::FPINITIALIZE is copied here
+	puts("Beginning initialization");
+	
+	// Check the SPIStatus (probably for debugging but it's useful for that very reason)
+	auto spistatus = elan::ReadSPIStatus(spi_fd);
+	printf("SPIStatus = 0x%.2X\n", spistatus);
+	// In theory this should have both bit 1 and 7 clear to indicate uncalibrated and needing reset?
+	//
+	// In practice the driver resets unconditionally
+	elan::DoHidReset(located_hid_path);
+
+	// DEVIATION: read the spi status again to see if it changed
+	spistatus = elan::ReadSPIStatus(spi_fd);
+	printf("SPIStatus after reset = 0x%.2X\n", spistatus);
+
+	// Dump registers
+	auto DumpReg = [&](){
+		for (int i = 0; i < 0x40; ++i) {
+			printf("- Register %02x = %02x\n", i, elan::ReadRegister(spi_fd, i));
+		}
+	};
+	DumpReg();
+
+	puts("Reading raw dimensions");	
+
+	auto rawHeight = elan::ReadSensorHeight(spi_fd);
+	auto rawWidth = elan::ReadSensorWidth(spi_fd);
+
+	uint8_t sensWidth = rawWidth;
+	uint8_t sensHeight = rawHeight;
+	uint8_t sensIcVersion = 0;
+
+	printf("Got %dx%d sensor\n", rawWidth, rawHeight);
+
+	// Do a hardcoded check:
+	// It appears that the format changed with the versions, as some sensors report 1+the correct values for these, indicating that the +1 was added later, hence why they are 
+	// labelled ICVersion 0
+	//
+	// As a result, we check for the three dimensions that have this behaviour first
+	if ( ((rawHeight == 0xa1) && (rawWidth == 0xa1)) ||
+	     ((rawHeight == 0xd1) && (rawWidth == 0x51)) ||
+	     ((rawHeight == 0xc1) && (rawWidth == 0x39)) ) {
+		sensIcVersion = 0; // Version 0
+		sensWidth = rawWidth - 1;
+		sensHeight = rawHeight - 1;
+	}
+	else {
+		// If the sensor is exactly 96x96 (0x60 x 0x60), the version is the high bit of register 17
+		if (rawWidth == 0x60 && rawHeight == 0x60) {
+			if (-1 < static_cast<int8_t>(elan::ReadRegister(spi_fd, 0x17))) {
+				sensIcVersion = 0;
+			}
+			else {
+				sensIcVersion = 1;
+			}
+		}
+		else {
+			if ( ((rawHeight != 0xa0) || (rawWidth != 0x50)) &&
+				 ((rawHeight != 0x90) || (rawWidth != 0x40)) &&
+				 ((rawHeight != 0x78) || (rawWidth != 0x78)) ) {
+				if ( ((rawHeight != 0x40) || (rawWidth != 0x58)) &&
+				     ((rawHeight != 0x50) || (rawWidth != 0x50)) ) {
+					// Old sensor hack??
+					sensWidth = 0x78;
+					sensHeight = 0x78;
+					sensIcVersion = 0;
+				}
+				else {
+					// Otherwise, read the version 'normally'
+					sensIcVersion = elan::ReadSensorVersion(spi_fd);
+					if ((sensIcVersion & 0x70) == 0x10) sensIcVersion = 1;
+				}
+			}
+			else {
+				sensIcVersion = 1;
+			}
+		}
+	}
+
+	printf("After hardcoded lookup: (%d x %d) Version = %d\n", sensWidth, sensHeight, sensIcVersion);
+
+	bool sensIsOtp;
+	int sensId;
+
+	for (int i = 0; i < elan::SensorTableLength; ++i) {
+		if (elan::SensorDataTable[i].width == sensWidth && elan::SensorDataTable[i].height == sensHeight && elan::SensorDataTable[i].ic_version == sensIcVersion) {
+			sensId = i;
+			sensIsOtp = elan::SensorDataTable[i].is_otp_model;
+			break;
+		}
+	}
+
+	printf("Found sensor ID %d => [%s] (%d X %d) Version = %d; OTP = %d\n", sensId, elan::SensorNameTable[sensId], sensWidth, sensHeight, sensIcVersion, sensIsOtp);
+
+	// Close fds
+	close(spi_fd);
+		
+	// Clean up udev
+	udev_unref(udev);
+
+	// Free names
+	free(located_hid_path);
+	free(located_spi_path);
+
+	return 0;
+}
