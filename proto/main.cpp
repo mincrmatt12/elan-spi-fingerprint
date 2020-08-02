@@ -81,6 +81,17 @@ namespace elan {
 		return resp[1];
 	}
 
+	void WriteRegister(int fs, uint8_t regId, uint8_t value) {
+		uint8_t cmd[2] = {static_cast<uint8_t>(regId | 0x80), value};
+		write(fs, cmd, 2);
+	}
+
+	void SoftwareReset(int fd) {
+		uint8_t cmd = 0x31;
+		write(fd, &cmd, 1);
+		usleep(4000);
+	}
+
 	auto DoHidReset(const char *hidpath) {
 		// Send feature 0xe
 
@@ -101,6 +112,8 @@ namespace elan {
 		printf("Result of ioctl for reset %d\n", result);
 
 		close(fd);
+		usleep(20000);
+
 		return result;
 	}
 }
@@ -299,6 +312,66 @@ int main(int argc, char **argv) {
 	}
 
 	printf("Found sensor ID %d => [%s] (%d X %d) Version = %d; OTP = %d\n", sensId, elan::SensorNameTable[sensId], sensWidth, sensHeight, sensIcVersion, sensIsOtp);
+
+	puts("SoftwareReset...");
+	elan::SoftwareReset(spi_fd);
+
+	// Set OTP params
+	if (sensIsOtp) {
+		puts("SettingOTPParameter");
+		// SettingOTPParameter
+		uint8_t vref_trim1 = elan::ReadRegister(spi_fd, 0x3d);
+		printf("Before CTL_REG_VREF_TRIM1 = 0x%.2x\n", vref_trim1);
+		vref_trim1 &= 0x3f; // mask out low bits
+		elan::WriteRegister(spi_fd, 0x3d, vref_trim1);
+		printf("After CTL_REG_VREF_TRIM1 = 0x%.2x\n", vref_trim1);
+
+		// Set inital value for register 0x28
+
+		elan::WriteRegister(spi_fd, 0x28, 0x78);
+
+		uint8_t VcmMode = 0;
+
+		for (int itercount = 0; itercount < 3; ++itercount) { // totally arbitrary timeout replacement
+			// TODO: timeout
+
+			uint8_t regVal = elan::ReadRegister(spi_fd, 0x28);
+			if ((regVal & 0x40) == 0) {
+				// Do more stuff...
+				uint8_t regVal2 = elan::ReadRegister(spi_fd, 0x27);
+				if (regVal2 & 0x80) {
+					VcmMode = 2;
+					break;
+				}
+				VcmMode = regVal2 & 0x1;
+				if ((regVal2 & 6) == 6) {
+					uint8_t reg_dac2 = elan::ReadRegister(spi_fd, 7);
+					printf("Before CTL_REG_DAC2 = 0x%.2x\n", reg_dac2);
+					reg_dac2 |= 0x80;
+					printf("After CTL_REG_DAC2 = 0x%.2x\n", reg_dac2);
+					// rewrite it back
+					elan::WriteRegister(spi_fd, 7, reg_dac2);
+					elan::WriteRegister(spi_fd, 10, 0x97);
+					break;
+				}
+			}
+			// otherwise continue loop
+		}
+
+		// Set VCM mode
+		printf("SelectVCM %d\n", VcmMode);
+
+		if (VcmMode == 2) {
+			elan::WriteRegister(spi_fd, 0xb, 0x72);
+			elan::WriteRegister(spi_fd, 0xc, 0x62);
+		}
+		else if (VcmMode == 1) {
+			elan::WriteRegister(spi_fd, 0xb, 0x71);
+			elan::WriteRegister(spi_fd, 0xc, 0x49);
+		}
+
+		puts("SetOTPParameters");
+	}
 
 	// Close fds
 	close(spi_fd);
