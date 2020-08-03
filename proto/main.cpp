@@ -59,7 +59,7 @@ namespace elan {
 	template<uint8_t Idx>
 	uint8_t ReadGenericDevInfo(int fd) {
 		uint8_t cmd[3] = {
-			0xff, Idx, 0xff // this last byte is probably uninportant
+			Idx, 0xff, 0xff // this last byte is probably uninportant
 		};
 		uint8_t resp[3];
 		SpiFullDuplex(fd, resp, cmd, 3);
