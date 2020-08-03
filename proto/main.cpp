@@ -122,92 +122,13 @@ int main(int argc, char **argv) {
 	puts("Prototype starting...");
 	printf("Compiled with HKEY values : TP_VID %s; TP_PID %s; ACPI_ID %s\n", elan::TP_VID, elan::TP_PID, elan::ACPI_HID);
 
-	// Initialize libudev
-	puts("Creating libudev context");
-	udev* udev = udev_new();
-	if (!udev) {
-		puts("Failed to start udev");
+	if (argc < 3) {
+		puts("Usage: prototype /dev/spi /dev/hidraw");
 		return 1;
 	}
-
-	int located_spi = 0;
-	char *located_spi_path = nullptr;
-
-	udev_enumerate *enumerate_acpi = udev_enumerate_new(udev);
 	
-	// Tell it to match that
-	udev_enumerate_add_match_subsystem(enumerate_acpi, "acpi");
-	udev_enumerate_add_match_sysattr(enumerate_acpi, "hid", elan::ACPI_HID);
-
-	// Execute matching
-	udev_enumerate_scan_devices(enumerate_acpi);
-	{
-		udev_list_entry *devices, *dev_entry;
-		devices = udev_enumerate_get_list_entry(enumerate_acpi);
-		udev_list_entry_foreach(dev_entry, devices) {
-			++located_spi;
-
-			free(located_spi_path);
-			located_spi_path = strdup(udev_list_entry_get_name(dev_entry));
-			printf("Got entry %s\n", located_spi_path);
-		}
-	}
-
-	// Get the SPI device
-	if (located_spi != 1) {
-		puts("Unable to find a single ACPI entry for the SPI, is ACPI_ID set correctly?");
-		return 1;
-	}
-
-	// Add physical_node to the path because reasons
-	{
-		udev_device *spidev_device;
-
-		char buf[strlen(located_spi_path)+1+strlen("/physical_node")];
-		strcpy(buf, located_spi_path);
-		strcat(buf, "/physical_node");
-
-		spidev_device = udev_device_new_from_syspath(udev, buf);
-		located_spi_path = strdup(udev_device_get_devnode(spidev_device));
-
-		udev_device_unref(spidev_device);
-	}
-	
-	// Delete acpi enumerator
-	udev_enumerate_unref(enumerate_acpi);
-	
-	// Enumerate hids
-	struct udev_enumerate *enumerate_hid = udev_enumerate_new(udev);
-	udev_enumerate_add_match_subsystem(enumerate_hid, "hidraw");
-	udev_enumerate_add_match_sysattr(enumerate_hid, "idVendor", elan::TP_VID);
-	udev_enumerate_add_match_sysattr(enumerate_hid, "idProduct", elan::TP_PID);
-
-	int located_hid = 0;
-	char * located_hid_path = nullptr;
-
-	// Execute matching
-	udev_enumerate_scan_devices(enumerate_hid);
-	{
-		struct udev_list_entry *devices, *dev_entry;
-		devices = udev_enumerate_get_list_entry(enumerate_hid);
-		udev_list_entry_foreach(dev_entry, devices) {
-			++located_hid;
-
-			const char *syspath = udev_list_entry_get_name(dev_entry);
-			printf("Got hid entry %s\n", syspath);
-
-			udev_device *dev = udev_device_new_from_syspath(udev, syspath);
-			free(located_hid_path);
-
-			located_hid_path = strdup(udev_device_get_devnode(dev));
-			udev_device_unref(dev);
-		}
-	}
-
-	if (located_hid != 1) {
-		puts("Unable to find a single HID entry, are TP_VID and TP_PID set correctly?");
-		return 1; //yes this leaks but what are you going to do about it, it returns right after anyways
-	}
+	char *located_spi_path = argv[1];
+	char *located_hid_path = argv[2];
 
 	// Ok, we now have a /dev/hidraw and /dev/spidev
 	printf("Got SPI = %s and HID = %s, opening.\n", located_spi_path, located_hid_path);
@@ -375,13 +296,6 @@ int main(int argc, char **argv) {
 
 	// Close fds
 	close(spi_fd);
-		
-	// Clean up udev
-	udev_unref(udev);
-
-	// Free names
-	free(located_hid_path);
-	free(located_spi_path);
 
 	return 0;
 }
