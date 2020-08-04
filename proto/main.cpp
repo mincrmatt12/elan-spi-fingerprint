@@ -29,8 +29,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <string>
 #include <algorithm>
 #include <numeric>
+#include <iostream>
 
 // Various tables copied directly from the WbfSpiDriver.dll file
 
@@ -473,7 +475,26 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+
 	DumpReg();
+
+	std::string fname;
+	
+	puts("About to take test image: please place finger on sensor (or other part of body if sending to avoid leaking important biometric information but it better still have a pattern or something yay)");
+	puts("Where to save dump (enter)");
+	std::cin >> fname;
+
+	uint16_t data[sensWidth * sensHeight];
+	elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, data);
+
+	puts("Taking image");
+
+	int out_fd = open(fname.c_str(), O_CREAT | O_WRONLY);
+	write(out_fd, data, sensWidth * sensHeight * 2);
+	close(out_fd);
+
+	puts("Wrote out!");
+	puts("Done..");
 
 	// Close fds
 	close(spi_fd);
