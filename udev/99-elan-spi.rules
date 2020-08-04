@@ -1,0 +1,3 @@
+
+# Use spidev with ELAN devices
+ACTION=="add|change", SUBSYSTEM=="spi", ENV{MODALIAS}=="acpi:ELAN7001", PROGRAM+="/bin/sh -c 'echo spidev > %S%p/driver_override && echo %k > %S%p/subsystem/drivers/spidev/bind'"
