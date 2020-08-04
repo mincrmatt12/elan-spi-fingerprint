@@ -294,7 +294,7 @@ namespace elan {
 		// Compute mean value
 		uint8_t calibration_dac_value = (((std::accumulate(raw_image, raw_image + (width * height), 0) / (width*height)) & 0xffff) + 0x80) >> 8;
 
-		printf("Got calibration value %02x", calibration_dac_value);
+		printf("Got calibration value %02x\n", calibration_dac_value);
 
 		if (0x3f < calibration_dac_value) calibration_dac_value = 0x3f;
 
@@ -340,6 +340,22 @@ namespace elan {
 
 		puts("Calibration failed to settle!");
 		return false;
+	}
+
+	void CorrectWithBg(int width, int height, uint16_t *correct, const uint16_t* bg) {
+		int countMin = 0;
+		puts("CorrectWithBg");
+
+		for (int i = 0; i < width*height; ++i) {
+			if (correct[i] < bg[i]) {
+				countMin++;
+			}
+			else {
+				correct[i] -= bg[i];
+			}
+		}
+
+		printf("ImgCorrection BG reported %d low pixels from %d total (%d percent)\n", countMin, width*height, (countMin * 100)/(width*height));
 	}
 }
 
@@ -476,8 +492,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-
 	DumpReg();
+
+	puts("Taking background image");
+
+	uint16_t bg_data[sensWidth * sensHeight];
+	elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, bg_data);
 
 	std::string fname;
 	
@@ -486,9 +506,12 @@ int main(int argc, char **argv) {
 	std::cin >> fname;
 
 	uint16_t data[sensWidth * sensHeight];
-	elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, data);
 
 	puts("Taking image");
+	elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, data);
+
+	puts("Correcting for background");
+	elan::CorrectWithBg(sensWidth, sensHeight, data, bg_data);
 	
 	std::ofstream out_fd(fname, std::ios::out | std::ios::binary | std::ios::trunc);
 	out_fd.write((char*)data, sensWidth * sensHeight * 2);
