@@ -202,7 +202,6 @@ namespace elan {
 			// Wait for status ready
 			while (true) {
 				uint8_t status = ReadSPIStatus(fd);
-				printf("CaptureImg status is %02x\n", status);
 				if (status & 4) break;
 				// wait for bit 3
 			}
