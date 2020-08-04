@@ -423,6 +423,7 @@ int main(int argc, char **argv) {
 				hidraw_devinfo info;
 
 				int res = ioctl(temp_hid, HIDIOCGRAWINFO, &info);
+				close(temp_hid);
 				if (res < 0) {
 					puts("skipping because failed to get info");
 					udev_device_unref(dev);
