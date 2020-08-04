@@ -31,6 +31,7 @@
 
 #include <string>
 #include <algorithm>
+#include <fstream>
 #include <numeric>
 #include <iostream>
 
@@ -488,10 +489,9 @@ int main(int argc, char **argv) {
 	elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, data);
 
 	puts("Taking image");
-
-	int out_fd = open(fname.c_str(), O_CREAT | O_WRONLY);
-	write(out_fd, data, sensWidth * sensHeight * 2);
-	close(out_fd);
+	
+	std::ofstream out_fd(fname, std::ios::out | std::ios::binary | std::ios::trunc);
+	out_fd.write((char*)data, sensWidth * sensHeight * 2);
 
 	puts("Wrote out!");
 	puts("Done..");
