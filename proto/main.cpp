@@ -436,6 +436,8 @@ int main(int argc, char **argv) {
 				if (info.vendor == elan::TP_VID && info.product == elan::TP_PID) {
 					puts("Found TP ID!");
 					located_spi_path.assign(devpath);
+					udev_device_unref(dev);
+					break;
 				}
 				udev_device_unref(dev);
 			}
@@ -451,6 +453,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (located_hid_path.empty() || located_spi_path.empty()) {
+		printf("%s %s", located_spi_path.c_str(), located_hid_path.c_str());
 		puts("Failed to detect SPI or HID!");
 		return 1;
 	}
