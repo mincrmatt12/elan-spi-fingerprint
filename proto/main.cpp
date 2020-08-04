@@ -29,7 +29,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <string>
+#include <algorithm>
+#include <numeric>
 
 // Various tables copied directly from the WbfSpiDriver.dll file
 
@@ -115,6 +116,228 @@ namespace elan {
 		usleep(20000);
 
 		return result;
+	}
+
+	void SetOTPParameters(int spi_fd) {
+		puts("SettingOTPParameter");
+		// SettingOTPParameter
+		uint8_t vref_trim1 = elan::ReadRegister(spi_fd, 0x3d);
+		printf("Before CTL_REG_VREF_TRIM1 = 0x%.2x\n", vref_trim1);
+		vref_trim1 &= 0x3f; // mask out low bits
+		elan::WriteRegister(spi_fd, 0x3d, vref_trim1);
+		printf("After CTL_REG_VREF_TRIM1 = 0x%.2x\n", vref_trim1);
+
+		// Set inital value for register 0x28
+
+		elan::WriteRegister(spi_fd, 0x28, 0x78);
+
+		uint8_t VcmMode = 0;
+
+		for (int itercount = 0; itercount < 3; ++itercount) { // totally arbitrary timeout replacement
+			// TODO: timeout
+
+			uint8_t regVal = elan::ReadRegister(spi_fd, 0x28);
+			if ((regVal & 0x40) == 0) {
+				// Do more stuff...
+				uint8_t regVal2 = elan::ReadRegister(spi_fd, 0x27);
+				if (regVal2 & 0x80) {
+					VcmMode = 2;
+					break;
+				}
+				VcmMode = regVal2 & 0x1;
+				if ((regVal2 & 6) == 6) {
+					uint8_t reg_dac2 = elan::ReadRegister(spi_fd, 7);
+					printf("Before CTL_REG_DAC2 = 0x%.2x\n", reg_dac2);
+					reg_dac2 |= 0x80;
+					printf("After CTL_REG_DAC2 = 0x%.2x\n", reg_dac2);
+					// rewrite it back
+					elan::WriteRegister(spi_fd, 7, reg_dac2);
+					elan::WriteRegister(spi_fd, 10, 0x97);
+					break;
+				}
+			}
+			// otherwise continue loop
+		}
+
+		// Set VCM mode
+		printf("SelectVCM %d\n", VcmMode);
+
+		if (VcmMode == 2) {
+			elan::WriteRegister(spi_fd, 0xb, 0x72);
+			elan::WriteRegister(spi_fd, 0xc, 0x62);
+		}
+		else if (VcmMode == 1) {
+			elan::WriteRegister(spi_fd, 0xb, 0x71);
+			elan::WriteRegister(spi_fd, 0xc, 0x49);
+		}
+
+		puts("SetOTPParameters");
+	}
+
+	void WriteRegtable(int fd, RegTable table) {
+		for (int i = 0; i < table.length; ++i) {
+			printf("Regtable[%d] sets %02x --> %02x\n", i, table.values[i].address, table.values[i].value);
+			elan::WriteRegister(fd, table.values[i].address, table.values[i].value);
+		}
+	}
+
+	// raw_data_out is laid out row major and has correct endianness
+	// (row increases slowest)
+	void CaptureRawImage(int fd, int width, int height, uint16_t *raw_data_out) {
+		// TODO: SetRegisterInitialValuesForSensing & WOE Mode (unsupported on tyler's system)
+
+		uint8_t rx_buf[2 + width*2];
+		memset(rx_buf, 0, sizeof rx_buf);
+		uint8_t tx_buf[2 + width*2];
+		memset(tx_buf, 0, sizeof tx_buf);
+
+		// Send sensor command 0x1
+		{
+			uint8_t cmd = 0x1;
+			write(fd, &cmd, 1);
+		}
+
+		// Todo: TIMEOUTS
+		for (int line = 0; line < height; ++line) {
+			// Wait for status ready
+			while (true) {
+				uint8_t status = ReadSPIStatus(fd);
+				printf("CaptureImg status is %02x\n", status);
+				if (status & 4) break;
+				// wait for bit 3
+			}
+			
+			tx_buf[0] = 0x10;
+			tx_buf[1] = 0x00;
+
+			// Send out command and receieve one line of image data
+
+			SpiFullDuplex(fd, rx_buf, tx_buf, 2 + width*2);
+
+			// Populate data in buffer
+
+			for (int col = 0; col < width; ++col) {
+				uint8_t low = rx_buf[2 + col*2 + 1];
+				uint8_t high = rx_buf[2 + col*2];
+
+				raw_data_out[width * line + col] = low + high * 0x100;
+			}
+		}
+	}
+
+	struct RegisterGuard {
+		RegisterGuard(int fd, uint8_t addr, uint8_t enter, uint8_t exit) {
+			this->fd = fd;
+			this->addr = addr;
+			this->exit = exit;
+
+			elan::WriteRegister(fd, addr, enter);
+		}
+
+		~RegisterGuard() {
+			printf("RegisterGuard clearing %d to %d", this->addr, this->exit);
+			elan::WriteRegister(this->fd, this->addr, this->exit);
+		}
+
+	private:
+		int fd;
+		uint8_t addr, exit;
+	};
+
+	bool Calibrate(int fd, int sensorId, int width, int height) {
+		// Start by writing 0x5a to register 0, which seems to be a prerequisite for changing most of the registers or something.
+
+		puts("Starting calibration");
+		RegisterGuard guard(fd, 0, 0x5a, 0x00);
+
+		// Send command 0x4, which probably sets the "calibrated" bit.
+
+		puts("Sending cmd 0x4");
+		{
+			uint8_t cmd = 0x4;
+			write(fd, &cmd, 1);
+			usleep(1000);
+		}
+
+		puts("Sending regtable");
+
+		// Based on the sensor ID, write a regtable.
+		switch (sensorId) {
+			case 0:
+				WriteRegtable(fd, calib::CalibId0);
+				break;
+			case 0x5:
+				WriteRegtable(fd, calib::CalibId5);
+				break;
+			case 0x6:
+				WriteRegtable(fd, calib::CalibId6);
+				break;
+			case 0x7:
+				WriteRegtable(fd, calib::CalibId7);
+				break;
+			default:
+				WriteRegtable(fd, calib::CalibIdDefault);
+				break;
+		}
+		
+		// Take a raw image to set gain
+		
+		puts("Capturing image");
+
+		uint16_t raw_image[width * height];
+		memset(raw_image, 0, sizeof raw_image);
+
+		CaptureRawImage(fd, width, height, raw_image);
+
+		// Compute mean value
+		uint8_t calibration_dac_value = (((std::accumulate(raw_image, raw_image + (width * height), 0) / (width*height)) & 0xffff) + 0x80) >> 8;
+
+		printf("Got calibration value %02x", calibration_dac_value);
+
+		if (0x3f < calibration_dac_value) calibration_dac_value = 0x3f;
+
+		// Write that to register 6
+
+		WriteRegister(fd, 0x6, calibration_dac_value - 0x40);
+
+		// Take another image
+		CaptureRawImage(fd, width, height, raw_image);
+
+		int mean_value = std::accumulate(raw_image, raw_image + (width * height), 0) / (width*height);
+
+		printf("New mean image == %d\n", mean_value);
+
+		if (mean_value >= 1000) {
+			puts("======================");
+			puts("======================");
+			puts("The mean value is abnormally high, the real driver would reject this. The prototype doesn't care, but you probably have your fingerprint on the sensor or something.");
+			puts("======================");
+			puts("======================");
+		}
+
+		puts("Increasing gain to 0x6f");
+
+		WriteRegister(fd, 0x5, 0x6f);
+
+		// Adjust DAC
+
+		for (int i = 0; i < 2; ++i) {
+			puts("Taking calibration image 3 for iterative");
+			CaptureRawImage(fd, width, height, raw_image);
+			mean_value = std::accumulate(raw_image, raw_image + (width * height), 0) / (width*height);
+			printf("CalibLoop[%d] mean_value == %d\n", i, mean_value);
+			if ((mean_value - 3000) < 0x1389) {
+				printf("Calibration success, DAC=%02x\n", calibration_dac_value);
+				return true;
+			}
+			if (mean_value < 0x1f41) calibration_dac_value -= 1;
+			else 					 calibration_dac_value += 1;
+			printf("CalibLoop[%d] nudging DAC to %02x\n", i, calibration_dac_value);
+			WriteRegister(fd, 0x6, calibration_dac_value - 0x40);
+		}
+
+		puts("Calibration failed to settle!");
+		return false;
 	}
 }
 
@@ -237,61 +460,18 @@ int main(int argc, char **argv) {
 	puts("SoftwareReset...");
 	elan::SoftwareReset(spi_fd);
 
+	// DEVIATION: Out of curiosity, do another regdump + status
+	spistatus = elan::ReadSPIStatus(spi_fd);
+	printf("SPIStatus after reset = 0x%.2X\n", spistatus);
+	DumpReg();
+
 	// Set OTP params
-	if (sensIsOtp) {
-		puts("SettingOTPParameter");
-		// SettingOTPParameter
-		uint8_t vref_trim1 = elan::ReadRegister(spi_fd, 0x3d);
-		printf("Before CTL_REG_VREF_TRIM1 = 0x%.2x\n", vref_trim1);
-		vref_trim1 &= 0x3f; // mask out low bits
-		elan::WriteRegister(spi_fd, 0x3d, vref_trim1);
-		printf("After CTL_REG_VREF_TRIM1 = 0x%.2x\n", vref_trim1);
+	if (sensIsOtp) elan::SetOTPParameters(spi_fd);
 
-		// Set inital value for register 0x28
-
-		elan::WriteRegister(spi_fd, 0x28, 0x78);
-
-		uint8_t VcmMode = 0;
-
-		for (int itercount = 0; itercount < 3; ++itercount) { // totally arbitrary timeout replacement
-			// TODO: timeout
-
-			uint8_t regVal = elan::ReadRegister(spi_fd, 0x28);
-			if ((regVal & 0x40) == 0) {
-				// Do more stuff...
-				uint8_t regVal2 = elan::ReadRegister(spi_fd, 0x27);
-				if (regVal2 & 0x80) {
-					VcmMode = 2;
-					break;
-				}
-				VcmMode = regVal2 & 0x1;
-				if ((regVal2 & 6) == 6) {
-					uint8_t reg_dac2 = elan::ReadRegister(spi_fd, 7);
-					printf("Before CTL_REG_DAC2 = 0x%.2x\n", reg_dac2);
-					reg_dac2 |= 0x80;
-					printf("After CTL_REG_DAC2 = 0x%.2x\n", reg_dac2);
-					// rewrite it back
-					elan::WriteRegister(spi_fd, 7, reg_dac2);
-					elan::WriteRegister(spi_fd, 10, 0x97);
-					break;
-				}
-			}
-			// otherwise continue loop
-		}
-
-		// Set VCM mode
-		printf("SelectVCM %d\n", VcmMode);
-
-		if (VcmMode == 2) {
-			elan::WriteRegister(spi_fd, 0xb, 0x72);
-			elan::WriteRegister(spi_fd, 0xc, 0x62);
-		}
-		else if (VcmMode == 1) {
-			elan::WriteRegister(spi_fd, 0xb, 0x71);
-			elan::WriteRegister(spi_fd, 0xc, 0x49);
-		}
-
-		puts("SetOTPParameters");
+	// Do sensor calibration
+	if (!elan::Calibrate(spi_fd, sensId, sensWidth, sensHeight)) {
+		puts("Sensor didn't calibrate!");
+		return 1;
 	}
 
 	// Close fds
