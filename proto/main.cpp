@@ -360,21 +360,102 @@ namespace elan {
 
 int main(int argc, char **argv) {
 	puts("Prototype starting...");
-	printf("Compiled with HKEY values : TP_VID %s; TP_PID %s; ACPI_ID %s\n", elan::TP_VID, elan::TP_PID, elan::ACPI_HID);
+	printf("Compiled with HKEY values : TP_VID %x; TP_PID %x; ACPI_ID %s\n", elan::TP_VID, elan::TP_PID, elan::ACPI_HID);
 
-	if (argc < 3) {
+	if (argc < 2) {
 		puts("Usage: prototype /dev/spi /dev/hidraw");
+		puts("    or prototype udev");
 		return 1;
 	}
-	
-	char *located_spi_path = argv[1];
-	char *located_hid_path = argv[2];
+
+	std::string located_spi_path = "";
+	std::string located_hid_path = "";
+
+	if (argc == 2) {
+		udev* udev = udev_new();
+
+		{
+			udev_enumerate *e = udev_enumerate_new(udev);
+			udev_enumerate_add_match_subsystem(e, "spidev");
+
+			udev_list_entry *devices, *dev_entry;
+			devices = udev_enumerate_get_list_entry(e);
+			udev_list_entry_foreach(dev_entry, devices) {
+				const char* syspath = udev_list_entry_get_value(dev_entry);
+				printf("Got SPI entry %s\n", syspath);
+				if (strstr(syspath, elan::ACPI_HID)) {
+					puts("Found ACPI id!");
+
+					udev_device *dev = udev_device_new_from_syspath(udev, syspath);
+					located_spi_path.assign(udev_device_get_devnode(dev));
+					udev_device_unref(dev);
+
+					break;
+				}
+			}
+
+			udev_enumerate_unref(e);
+		}
+
+		{
+			udev_enumerate *e = udev_enumerate_new(udev);
+			udev_enumerate_add_match_subsystem(e, "hidraw");
+
+			udev_list_entry *devices, *dev_entry;
+			devices = udev_enumerate_get_list_entry(e);
+			udev_list_entry_foreach(dev_entry, devices) {
+				const char* syspath = udev_list_entry_get_value(dev_entry);
+				printf("Got HID entry %s\n", syspath);
+				udev_device *dev = udev_device_new_from_syspath(udev, syspath);
+				const char* devpath = udev_device_get_devnode(dev);
+				if (!devpath) {
+					puts("skipping because no devpath");
+					udev_device_unref(dev);
+					continue;
+				}
+				
+				int temp_hid = open(devpath, O_RDWR);
+				if (temp_hid < 0) {
+					puts("skipping because failed to open");
+					udev_device_unref(dev);
+					continue;
+				}
+				hidraw_devinfo info;
+
+				int res = ioctl(temp_hid, HIDIOCGRAWINFO, &info);
+				if (res < 0) {
+					puts("skipping because failed to get info");
+					udev_device_unref(dev);
+					continue;
+				}
+
+				if (info.vendor == elan::TP_VID && info.product == elan::TP_PID) {
+					puts("Found TP ID!");
+					located_spi_path.assign(devpath);
+				}
+				udev_device_unref(dev);
+			}
+
+			udev_enumerate_unref(e);
+		}
+
+		udev_unref(udev);
+	}
+	else {
+		located_spi_path = argv[1];
+		located_hid_path = argv[2];
+	}
+
+	if (located_hid_path.empty() || located_spi_path.empty()) {
+		puts("Failed to detect SPI or HID!");
+		return 1;
+	}
 
 	// Ok, we now have a /dev/hidraw and /dev/spidev
-	printf("Got SPI = %s and HID = %s, opening.\n", located_spi_path, located_hid_path);
+	printf("Got SPI = %s and HID = %s, opening.\n", located_spi_path.c_str(), located_hid_path.c_str());
 
 	// Open the SPI first
-	int spi_fd = open(located_spi_path, O_RDWR);
+	int spi_fd = open(located_spi_path.c_str(), O_RDWR);
 	if (spi_fd < 0) {
 		puts("Failed to open SPI, check permissions?");
 		return 2;
@@ -389,7 +470,7 @@ int main(int argc, char **argv) {
 	// In theory this should have both bit 1 and 7 clear to indicate uncalibrated and needing reset?
 	//
 	// In practice the driver resets unconditionally
-	elan::DoHidReset(located_hid_path);
+	elan::DoHidReset(located_hid_path.c_str());
 
 	// DEVIATION: read the spi status again to see if it changed
 	spistatus = elan::ReadSPIStatus(spi_fd);

@@ -9,9 +9,8 @@
 
 namespace elan {
 
-	// TODO: confirm with tester
-	const static char *TP_VID = "04F3"; // stored as string because UDEV
-	const static char *TP_PID = "3057";
+	const static int TP_VID = 0x04F3;
+	const static int TP_PID = 0x3057;
 
 	// This is both from the DSDT table and the .inf file with the driver
 	const static char *ACPI_HID = "ELAN7001";
