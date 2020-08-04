@@ -382,7 +382,7 @@ int main(int argc, char **argv) {
 			udev_list_entry *devices, *dev_entry;
 			devices = udev_enumerate_get_list_entry(e);
 			udev_list_entry_foreach(dev_entry, devices) {
-				const char* syspath = udev_list_entry_get_value(dev_entry);
+				const char* syspath = udev_list_entry_get_name(dev_entry);
 				printf("Got SPI entry %s\n", syspath);
 				if (strstr(syspath, elan::ACPI_HID)) {
 					puts("Found ACPI id!");
@@ -407,7 +407,7 @@ int main(int argc, char **argv) {
 			devices = udev_enumerate_get_list_entry(e);
 
 			udev_list_entry_foreach(dev_entry, devices) {
-				const char* syspath = udev_list_entry_get_value(dev_entry);
+				const char* syspath = udev_list_entry_get_name(dev_entry);
 				printf("Got HID entry %s\n", syspath);
 				udev_device *dev = udev_device_new_from_syspath(udev, syspath);
 				const char* devpath = udev_device_get_devnode(dev);
