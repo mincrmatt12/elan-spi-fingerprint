@@ -378,6 +378,7 @@ int main(int argc, char **argv) {
 			udev_enumerate *e = udev_enumerate_new(udev);
 			udev_enumerate_add_match_subsystem(e, "spidev");
 
+			udev_enumerate_scan_devices(e);
 			udev_list_entry *devices, *dev_entry;
 			devices = udev_enumerate_get_list_entry(e);
 			udev_list_entry_foreach(dev_entry, devices) {
@@ -401,8 +402,10 @@ int main(int argc, char **argv) {
 			udev_enumerate *e = udev_enumerate_new(udev);
 			udev_enumerate_add_match_subsystem(e, "hidraw");
 
+			udev_enumerate_scan_devices(e);
 			udev_list_entry *devices, *dev_entry;
 			devices = udev_enumerate_get_list_entry(e);
+
 			udev_list_entry_foreach(dev_entry, devices) {
 				const char* syspath = udev_list_entry_get_value(dev_entry);
 				printf("Got HID entry %s\n", syspath);
