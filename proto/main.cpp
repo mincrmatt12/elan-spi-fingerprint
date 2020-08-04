@@ -473,6 +473,8 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	DumpReg();
+
 	// Close fds
 	close(spi_fd);
 
