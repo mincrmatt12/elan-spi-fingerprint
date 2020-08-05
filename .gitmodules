@@ -1,0 +1,4 @@
+[submodule "libfprint"]
+	path = libfprint
+	url = https://github.com/mincrmatt12/libfprint.git
+	branch = mincrmatt12/elan-spi
