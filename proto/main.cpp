@@ -240,8 +240,8 @@ namespace elan {
 		
 		// To do this, we first find the mean
 		int mean = std::accumulate(data, data+(width*height), 0) / (width*height);
-		int stddev = std::sqrt(std::accumulate(data, data+(width*height), 0, [&](int a, uint16_t b){
-			return a + std::abs(b - mean)*std::abs(b - mean);
+		int stddev = std::sqrt(std::accumulate(data, data+(width*height), 0., [&](double a, uint16_t b){
+			return a + std::abs((double)b - (double)mean)*std::abs((double)b - (double)mean);
 		}) / (width * height));
 		printf("GuessFingerprint mean=%d stddev=%d\n", mean, stddev);
 
@@ -254,6 +254,7 @@ namespace elan {
 
 		std::vector<uint16_t> high_half(low_half);
 
+		// this could really be a binary search esque thing with lower_bound
 		low_half.erase(std::remove_if(low_half.begin(), low_half.end(), [&](auto a){return a > mean;}), low_half.end());
 		high_half.erase(std::remove_if(high_half.begin(), high_half.end(), [&](auto a){return a < mean;}), high_half.end());
 		
