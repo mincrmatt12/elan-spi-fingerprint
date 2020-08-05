@@ -34,6 +34,8 @@
 #include <fstream>
 #include <numeric>
 #include <iostream>
+#include <cmath>
+#include <vector>
 
 // Various tables copied directly from the WbfSpiDriver.dll file
 
@@ -224,6 +226,52 @@ namespace elan {
 				raw_data_out[width * line + col] = low + high * 0x100;
 			}
 		}
+	}
+
+	enum struct GuessResult {
+		FP,
+		EMPTY,
+		UNKNOWN
+	};
+
+	// Try to guess whether or not this image has a fingerprint in it or not
+	GuessResult GuessFingerprint(const uint16_t *data, int width, int height) {
+		// First, compute the standard deviation
+		
+		// To do this, we first find the mean
+		int mean = std::accumulate(data, data+(width*height), 0) / (width*height);
+		int stddev = std::sqrt(std::accumulate(data, data+(width*height), 0, [&](int a, uint16_t b){
+			return std::abs(b - mean)*std::abs(b - mean);
+		}) / (width * height));
+		printf("GuessFingerprint mean=%d stddev=%d\n", mean, stddev);
+
+		// Next, we segment the data
+
+		// this'd be so much easier with c++20 lol
+		std::vector<uint16_t> low_half(data, data+(width*height));
+		std::sort(low_half.begin(), low_half.end());
+		low_half.erase(std::unique(low_half.begin(), low_half.end()), low_half.end());
+
+		std::vector<uint16_t> high_half(low_half);
+
+		low_half.erase(std::remove_if(low_half.begin(), low_half.end(), [&](auto a){return a > mean;}), low_half.end());
+		high_half.erase(std::remove_if(high_half.begin(), high_half.end(), [&](auto a){return a < mean;}), high_half.end());
+		
+		// Compute the meandist
+		int distavg = ((mean - low_half.back()) + (high_half.front() - mean)) / 2;
+		printf("GuessFingerprint distavg=%d\n", distavg);
+
+		int is_real = 0, is_empty = 0;
+		if (stddev < 850) ++is_real;
+		if (stddev > 2200) ++is_empty;
+
+		if (distavg < 200) ++is_real;
+		if (distavg > 1100) ++ is_empty;
+
+		printf("GuessFingerprint real=%d empty=%d\n", is_real, is_empty);
+		if (is_real > is_empty) return GuessResult::FP;
+		else if (is_empty > is_real) return GuessResult::EMPTY;
+		else return GuessResult::UNKNOWN;
 	}
 
 	struct RegisterGuard {
@@ -587,18 +635,35 @@ int main(int argc, char **argv) {
 
 	std::string fname;
 	
-	puts("About to take test image: please place finger on sensor (or other part of body if sending to avoid leaking important biometric information but it better still have a pattern or something yay)");
+	puts("I will wait for a finger to exist for a few frames before saving it. Where should i save it?");
 	puts("Where to save dump (enter)");
 	std::cin >> fname;
 
 	uint16_t data[sensWidth * sensHeight];
 
-	puts("Taking image");
-	elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, data);
-
-	puts("Correcting for background");
-	elan::CorrectWithBg(sensWidth, sensHeight, data, bg_data);
+	int downcounter = 0;
+	while (true) {
+		elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, data);
+		elan::CorrectWithBg(sensWidth, sensHeight, data, bg_data);
+		// Check if it's a real fingerprint
+		switch(elan::GuessFingerprint(data, sensWidth, sensHeight)) {
+			case elan::GuessResult::UNKNOWN:
+				puts("UNKNOWN");
+				break;
+			case elan::GuessResult::FP:
+				puts("FP exist");
+				++downcounter;
+				printf("downcount %d\n", downcounter);
+				if (downcounter >= 10) goto done_loop;
+				break;
+			default:
+				puts("EMPTY");
+				downcounter = 0;
+				break;
+		}
+	}
 	
+done_loop:
 	std::ofstream out_fd(fname, std::ios::out | std::ios::binary | std::ios::trunc);
 	out_fd.write((char*)data, sensWidth * sensHeight * 2);
 
