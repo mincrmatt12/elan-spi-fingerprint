@@ -241,7 +241,7 @@ namespace elan {
 		// To do this, we first find the mean
 		int mean = std::accumulate(data, data+(width*height), 0) / (width*height);
 		int stddev = std::sqrt(std::accumulate(data, data+(width*height), 0, [&](int a, uint16_t b){
-			return std::abs(b - mean)*std::abs(b - mean);
+			return a + std::abs(b - mean)*std::abs(b - mean);
 		}) / (width * height));
 		printf("GuessFingerprint mean=%d stddev=%d\n", mean, stddev);
 
