@@ -29,7 +29,7 @@ namespace elan {
 		bool is_otp_model;
 	};
 
-	const static int SensorTableLength = 13;
+	const static int SensorTableLength = 15;
 
 	// Taken directly from the DLL, contains information about every single sensor recognized
 	const static SensorDataTableEntry SensorDataTable[SensorTableLength] = {
@@ -45,7 +45,10 @@ namespace elan {
 		{0x9, 0x90, 0x40, 0x1, 0x1},
 		{0xA, 0x90, 0x40, 0x2, 0x1},
 		{0xB, 0x40, 0x58, 0x1, 0x1},
-		{0xC, 0x50, 0x50, 0x1, 0x0}
+		{0xC, 0x50, 0x50, 0x1, 0x0},
+		// from new driver
+		{0xD, 0x47, 0x80, 0x1, 0x1},
+		{0xE, 0x80, 0x80, 0x2, 0x0}
 	};
 
 	// Also taken from the DLL, indexes correspond to SensorId
@@ -61,7 +64,10 @@ namespace elan {
 		"eFSA614RA",
 		"eFSA614RB",
 		"eFSA688RA",
-		"eFSA80SA"
+		"eFSA80SA",
+		// from new driver
+		"eFSA712RA",
+		"eFSA80SC"
 	};
 
 }
