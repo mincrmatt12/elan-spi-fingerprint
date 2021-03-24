@@ -185,6 +185,13 @@ namespace elan {
 		}
 	}
 
+	//
+	// Capturing on the 0xe type sensor is also weird, there are two modes in the driver:
+	// - non x571:
+	//   send a 0x10; read in the entire image + a bunch of optional junk, filter for 0xffs, populate normally. (apparently 0xff is an invalid reading?)
+	// - x571:
+	//   send a 0x10, read in the entire image with exactly 2 bytes stride between rows.
+
 	// raw_data_out is laid out row major and has correct endianness
 	// (row increases slowest)
 	void CaptureRawImage(int fd, int width, int height, uint16_t *raw_data_out) {
