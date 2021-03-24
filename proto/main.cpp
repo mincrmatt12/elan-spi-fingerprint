@@ -163,7 +163,7 @@ namespace elan {
 			// otherwise continue loop
 		}
 
-		// Set VCM mode
+		// Set VCM mode (vcom apparently)
 		printf("SelectVCM %d\n", VcmMode);
 
 		if (VcmMode == 2) {
@@ -293,6 +293,39 @@ namespace elan {
 		int fd;
 		uint8_t addr, exit;
 	};
+
+	bool CalibrateHV(int fd, int sensorId, int width, int height) {
+		/*
+		 * Algorithm:
+		 *  There is a DAC value (which is probably a constant gain / offset for the DAC) which is a 10 bit integer, stored in
+		 *  registers 6 and 7 (GDAC_H (upper 8 bits), GDAC_L (lower 2 bits)).
+		 *
+		 *  We start with this value at 0x100. We then perform a binary search with this value to try and get the mean of a blank
+		 *  image as close as possible to some target V. Due to _reasons_, we also apparently keep track of historical values.
+		 *
+		 * 	uint BestDAC = 0, BestMeanDiff = UINT_MAX;
+		 *  uint DAC = 0x100, step = 0x100;
+		 *  for (int i = 0; i < 10; ++i) {
+		 *  	WriteGDAC(DAC);
+		 *  	int mean = GrabAndGetMean();
+		 *  	int diff = abs(mean - Target);
+		 *  	if (diff < 100) {
+		 *  		return DAC;
+		 *  	}
+		 *  	if (diff < BestMeanDiff) {
+		 *  		BestMeanDiff = diff;
+		 *  		BestDAC = DAC;
+		 *  	}
+		 *  	step /= 2;
+		 *  	if (step == 0) break;
+		 *  	if (mean < Target) DAC -= step; // yes, opposite
+		 *  	else               DAC += step;
+		 *  }
+		 *  return BestDAC;
+		 */
+
+		return false;
+	}
 
 	bool Calibrate(int fd, int sensorId, int width, int height) {
 		// Start by writing 0x5a to register 0, which seems to be a prerequisite for changing most of the registers or something.
@@ -555,6 +588,8 @@ int main(int argc, char **argv) {
 	// labelled ICVersion 0
 	//
 	// As a result, we check for the three dimensions that have this behaviour first
+	//
+	// Based on the obscene nonsense here I have a sneaking suspicion 
 	if ( ((rawHeight == 0xa1) && (rawWidth == 0xa1)) ||
 	     ((rawHeight == 0xd1) && (rawWidth == 0x51)) ||
 	     ((rawHeight == 0xc1) && (rawWidth == 0x39)) ) {
@@ -565,12 +600,7 @@ int main(int argc, char **argv) {
 	else {
 		// If the sensor is exactly 96x96 (0x60 x 0x60), the version is the high bit of register 17
 		if (rawWidth == 0x60 && rawHeight == 0x60) {
-			if (-1 < static_cast<int8_t>(elan::ReadRegister(spi_fd, 0x17))) {
-				sensIcVersion = 0;
-			}
-			else {
-				sensIcVersion = 1;
-			}
+			sensIcVersion = (elan::ReadRegister(spi_fd, 0x17) & 0x80) ? 1 : 0;
 		}
 		else {
 			if ( ((rawHeight != 0xa0) || (rawWidth != 0x50)) &&
@@ -585,8 +615,7 @@ int main(int argc, char **argv) {
 				}
 				else {
 					// Otherwise, read the version 'normally'
-					sensIcVersion = elan::ReadSensorVersion(spi_fd);
-					if ((sensIcVersion & 0x70) == 0x10) sensIcVersion = 1;
+					sensIcVersion = (elan::ReadSensorVersion(spi_fd) & 0x70) >> 4;
 				}
 			}
 			else {
