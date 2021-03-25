@@ -15,4 +15,5 @@ namespace elan {
 	// This is both from the DSDT table and the .inf file with the driver
 	const static char *ACPI_HID = "ELAN7001";
 
+	static_assert(TP_PID != 0x3104, "this apparently has a different setup according to driver which I'm not implementing rn.");
 };

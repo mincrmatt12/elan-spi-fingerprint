@@ -37,6 +37,8 @@
 #include <cmath>
 #include <vector>
 
+#include <assert.h>
+
 // Various tables copied directly from the WbfSpiDriver.dll file
 
 // Register tables for setting modes (calib + init)
@@ -96,6 +98,12 @@ namespace elan {
 		uint8_t cmd = 0x31;
 		write(fd, &cmd, 1);
 		usleep(4000);
+	}
+
+	void PageSelect(int fd, uint8_t page) {
+		uint8_t cmd[2] = {0x7, page};
+		write(fd, cmd, 2);
+		printf("set device register page to %d\n", page);
 	}
 
 	auto DoHidReset(const char *hidpath) {
@@ -187,10 +195,44 @@ namespace elan {
 
 	//
 	// Capturing on the 0xe type sensor is also weird, there are two modes in the driver:
-	// - non x571:
+	// - non x571: (case i'm implementing rn)
 	//   send a 0x10; read in the entire image + a bunch of optional junk, filter for 0xffs, populate normally. (apparently 0xff is an invalid reading?)
 	// - x571:
 	//   send a 0x10, read in the entire image with exactly 2 bytes stride between rows.
+	
+	void CaptureRawImageHV(int fd, int width, int height, uint16_t *raw_data_out) {
+		assert(width == 80 && height == 80);
+
+		uint8_t hardcoded_unclean_rx_buf[0x4102];
+		memset(hardcoded_unclean_rx_buf, 0xff, sizeof hardcoded_unclean_rx_buf);
+		uint8_t output_buf[0x4102];
+		memset(output_buf, 0, sizeof output_buf);
+
+		// Send sensor command 0x1
+		{
+			uint8_t cmd = 0x1;
+			write(fd, &cmd, 1);
+		}
+
+		// Receieve entire image + pad
+		output_buf[0] = 0x10;
+		SpiFullDuplex(fd, hardcoded_unclean_rx_buf, output_buf, 0x4102);
+
+		uint16_t value = 0;
+		for (int i = 2, outptr = 0; i < 0x4102 && outptr < (width*height*2); ++i) {
+			if (hardcoded_unclean_rx_buf[i] != 0xff) {
+				if (outptr % 2) {
+					value <<= 8;
+					value |= hardcoded_unclean_rx_buf[i];
+					raw_data_out[value / 2] = value;
+				}
+				else {
+					value = hardcoded_unclean_rx_buf[i];
+				}
+				++outptr;
+			}
+		}
+	}
 
 	// raw_data_out is laid out row major and has correct endianness
 	// (row increases slowest)
@@ -331,11 +373,75 @@ namespace elan {
 		 *  return BestDAC;
 		 */
 
-		return false;
+		// set register to page 0
+		PageSelect(fd, 0);
+		// set calibration flag
+		{
+			uint8_t cmd = 0x4;
+			write(fd, &cmd, 1);
+			usleep(1000);
+		}
+		// set 0 to 5a
+		RegisterGuard guard(fd, 0, 0x5a, 0);
+		puts("Sending table 0");
+		switch (sensorId) {
+			case 0xe:
+			default:
+				WriteRegtable(fd, calib::HV::Page0);
+				break;
+		}
+		PageSelect(fd, 1);
+		puts("Sending table 1");
+		switch (sensorId) {
+			case 0xe:
+			default:
+				WriteRegtable(fd, calib::HV::Page1);
+				break;
+		}
+		PageSelect(fd, 0);
+
+		auto WriteGDAC = [&](uint16_t DAC){
+			WriteRegister(fd, 0x6 /* GDAC_H */, (DAC >> 2) & 0xff);
+			WriteRegister(fd, 0x7 /* GDAC_H */, (DAC & 0b11));
+		};
+
+		const int TargetMean = 3000;
+
+		uint16_t raw_image[width*height];
+		uint16_t BestDAC = 0, BestMeanDiff = UINT16_MAX;
+		uint16_t DAC = 0x100, step = 0x100;
+		for (int i = 0; i < 10; ++i) {
+			printf("Calibration loop %d; with DAC = %d.\nBestDAC = %d, BestMeanDiff = %d\n", i, DAC, BestDAC, BestMeanDiff);
+			WriteGDAC(DAC);
+			CaptureRawImageHV(fd, width, height, raw_image);
+			int mean = std::accumulate(raw_image, raw_image + (width * height), 0) / (width * height);
+			printf("Image mean = %d\n", mean);
+			uint16_t diff = abs(mean - TargetMean);
+			if (diff < 100) {
+				puts("Mean diff < 100; exiting early.");
+				return true;
+			}
+			if (diff < BestMeanDiff) {
+				BestMeanDiff = diff;
+				BestDAC = DAC;
+				puts("New best");
+			}
+			step /= 2;
+			if (step == 0) break;
+			if (mean < TargetMean) DAC -= step;
+			else                   DAC += step;
+		}
+
+		puts("Exited loop, using best values.");
+		WriteGDAC(BestDAC);
+
+		return true;
 	}
 
 	bool Calibrate(int fd, int sensorId, int width, int height) {
 		// Start by writing 0x5a to register 0, which seems to be a prerequisite for changing most of the registers or something.
+
+		if (sensorId == 0xe) return CalibrateHV(fd, sensorId, width, height);
 
 		puts("Starting calibration");
 		RegisterGuard guard(fd, 0, 0x5a, 0x00);
@@ -668,7 +774,7 @@ int main(int argc, char **argv) {
 	puts("Taking background image");
 
 	uint16_t bg_data[sensWidth * sensHeight];
-	elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, bg_data);
+	(sensId == 0xe ? elan::CaptureRawImageHV : elan::CaptureRawImage)(spi_fd, sensWidth, sensHeight, bg_data);
 
 	std::string fname;
 	
@@ -680,7 +786,7 @@ int main(int argc, char **argv) {
 
 	int downcounter = 0;
 	while (true) {
-		elan::CaptureRawImage(spi_fd, sensWidth, sensHeight, data);
+		(sensId == 0xe ? elan::CaptureRawImageHV : elan::CaptureRawImage)(spi_fd, sensWidth, sensHeight, data);
 		elan::CorrectWithBg(sensWidth, sensHeight, data, bg_data);
 		// Check if it's a real fingerprint
 		switch(elan::GuessFingerprint(data, sensWidth, sensHeight)) {
