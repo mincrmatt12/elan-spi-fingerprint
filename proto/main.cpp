@@ -224,7 +224,7 @@ namespace elan {
 				if (outptr % 2) {
 					value <<= 8;
 					value |= hardcoded_unclean_rx_buf[i];
-					raw_data_out[value / 2] = value;
+					raw_data_out[outptr / 2] = value;
 				}
 				else {
 					value = hardcoded_unclean_rx_buf[i];
