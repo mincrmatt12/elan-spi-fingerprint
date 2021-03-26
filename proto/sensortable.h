@@ -60,6 +60,7 @@ namespace elan {
 		"eFSA519R",
 		"eFSA96S",
 		"eFSA96SA",
+		"eFSA96SB",
 		"eFSA816RA",
 		"eFSA614RA",
 		"eFSA614RB",
