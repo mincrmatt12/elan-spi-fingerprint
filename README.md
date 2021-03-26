@@ -1,8 +1,43 @@
 # elan-spi-fingerprint
 
-Reverse engineering the SPI elantech fingerprint sensor drivers.
+Reverse engineering the SPI elantech fingerprint sensor drivers. These seem to appear a lot in asus laptops, especially those with the fingerprint in the touchpad.
 
-A Ghidra archive of the Wbf driver is present as elanfp.gar. Some notes about the protocol are present in notes.txt
+## Device support
+
+This driver is specifically for elantech's _SPI_ based sensors. If the fingerprint sensor shows up in `lsusb`, you can probably use the
+preexisting `libfprint` USB elantech driver, which is already merged into mainline `libfprint` (or see [here](https://github.com/iafilatov/libfprint))
+
+### Laptop status
+
+| Laptop | ACPI ID | Touchpad HID PID | Sensor name | Status | Notes |
+| :------- | ---- | ---- | ------- | :--------: | :----------- |
+| ASUS VivoBook S15 S510UA (x510uar) | `ELAN7001` | `3057` | `eFSA96SA` (`0x6`) | Working (prototype+libfprint on `mincrmatt12/elan-spi`) | |
+| ASUS VivoBook S15 S510UN (x510un) | `ELAN7001` | unknown, probably `3057` | unknown, probably `eFSA96SA` (`0x6`) | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issuecomment-748479266) |
+| ASUS VivoBook S15 S530FN (x530fn) | `ELAN7001` | `3087` | unknown | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi-s530fn`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issue-703963799) |
+| ASUS ExpertBook B9400CEA | `ELAN70A1` | `3134` | `eFSA80SC` (`0xe`) | In progress (prototype only) | See [#2](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/2) |
+
+### Specific sensor status
+
+| Sensor Name/ID | Prototype status | Libfprint status |
+| :------- | -------- | --------------- |
+| `eFSA120S` (`0x0`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA120SA` (`0x1`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA160S` (`0x2`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA820R` (`0x3`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA519R` (`0x4`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA96S` (`0x5`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA96SA` (`0x6`) | Working | Working (on branch `mincrmatt12/elan-spi`) |
+| `eFSA96SB` (`0x7`) | Not tested, probably not working (version 2) | Not started |
+| `eFSA816RA` (`0x8`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA614RA` (`0x9`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA614RB` (`0xa`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA688RA` (`0xb`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA80SA` (`0xc`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA712RA` (`0xd`) | Not tested, probably not working | Not tested (try `mincrmatt12/elan-spi`) |
+| `eFSA80SC` (`0xe`) | In progress | Not started |
+
+Note, for devices marked "not tested" for libfprint but which _do_ have a branch listed, you will probably need to modify the PID constants in `elanspi.h` based on which touchpad you have to get it to detect (and potentially work with) your
+sensor.
 
 ## Prototype
 
@@ -26,8 +61,8 @@ In order to find these devices automatically, we currently use `udev`, and the t
 
 There is also work on a proper `libfprint` driver for these sensors.
 
-The current development one uses much the same logic as the prototype, only supporting the bare minimum communication system. We currently add a bus type `SPIDEV` to `libfprint` (the HID device is opened temporarily and on-demand, and shouldn't
-need to be claimed exclusively) and since there doesn't seem to be a good way of automatically assigning devices to drivers, we currently let the driver decide based on a device's syspath + udev device what it wants to do with it.
+The current development one uses much the same logic as the prototype, only supporting the bare minimum communication system. 
+We currently add a bus type `UDEV` to `libfprint` which lets drivers completely control what system devices they want (this driver uses a hid device for hw reset and an spidev)
 
 In order to determine whether or not a finger is on the sensor, the windows driver either waits for a GPIO interrupt / power state change (which we currently don't have any hardware to test with since the only machine we have doesn't use this)
 or continuously takes images and tries to guess whether or not a finger is present.
@@ -37,6 +72,16 @@ Ideas for other methods or help reversing the windows driver is welcome.
 
 This standard deviation is kind of weird, it isn't over the entire image but rather it's done row-wise, presumably because the image seems to have noticeable "bands" of background, and then an average of all the standard devs
 is taken. (my pitiful math skills might mean that this is actually the same as an average over the entire image)
+
+The current implementation uses two techniques to determine if an image is empty, which works well enough right now:
+
+- stddev
+- number of pixels below the background image (currently implemented with a massive hack because I made a silly error when implementing the background correction function, but functionally does this)
+
+We also treat the sensors as swipe-style ones, since the libfprint image matching algorithm is not designed to deal with such small sensors.
+
+When building the libfprint fork, please _don't_ use the version in this repo, rather pull the latest one from [mincrmatt12/libfprint](https://github.com/mincrmatt12/libfprint). Make sure you build it with `-D drivers=all`.
+Right now it's a little hard-coded and might need some convincing to use your specific sensor.
 
 ## Protocol info
 
