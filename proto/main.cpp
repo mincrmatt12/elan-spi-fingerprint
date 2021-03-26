@@ -214,6 +214,14 @@ namespace elan {
 			write(fd, &cmd, 1);
 		}
 
+		// Wait for image to be ready.
+		while (true) {
+			uint8_t status = ReadSPIStatus(fd);
+			if (status & 4) break;
+			// wait for bit 3
+			puts("waiting for image...");
+		}
+
 		// Receieve entire image + pad
 		output_buf[0] = 0x10;
 		SpiFullDuplex(fd, hardcoded_unclean_rx_buf, output_buf, 0x4102);
