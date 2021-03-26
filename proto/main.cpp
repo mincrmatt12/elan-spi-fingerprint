@@ -62,8 +62,10 @@ auto SpiFullDuplex(int fd, uint8_t *rx_buffer, uint8_t *tx_buffer, size_t length
 	for (int i = 0; i < required; ++i) {
 		if (i == required - 1) {
 			mesg[i].len = length % MAX_SPI_SIZE;
+			if (mesg[i].len == 0) mesg[i].len = MAX_SPI_SIZE;
 		}
 		else {
+
 			mesg[i].len = MAX_SPI_SIZE;
 		}
 		mesg[i].rx_buf = (__u64)(rx_buffer + i*MAX_SPI_SIZE);
