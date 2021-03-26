@@ -50,15 +50,30 @@
 // Sensor settings from the registry
 #include "hkeyvalue.h"
 
+#define MAX_SPI_SIZE 2048
+
 // Helper routine for doing duplex
 auto SpiFullDuplex(int fd, uint8_t *rx_buffer, uint8_t *tx_buffer, size_t length) {
-	spi_ioc_transfer mesg;
-	memset(&mesg, 0, sizeof mesg);
-	mesg.len = length;
-	mesg.rx_buf = (__u64)rx_buffer;
-	mesg.tx_buf = (__u64)tx_buffer;
+	size_t required = length / MAX_SPI_SIZE;
+	if (required * MAX_SPI_SIZE < length) ++required;
+	spi_ioc_transfer *mesg = (spi_ioc_transfer *)malloc(sizeof(spi_ioc_transfer) * required);
+	memset(&mesg, 0, required * sizeof( spi_ioc_transfer));
 
-	return ioctl(fd, SPI_IOC_MESSAGE(1), &mesg);
+	for (int i = 0; i < required; ++i) {
+		if (i == required - 1) {
+			mesg[i].len = length % MAX_SPI_SIZE;
+		}
+		else {
+			mesg[i].len = MAX_SPI_SIZE;
+		}
+		mesg[i].rx_buf = (__u64)(rx_buffer + i*MAX_SPI_SIZE);
+		mesg[i].tx_buf = (__u64)(tx_buffer + i*MAX_SPI_SIZE);
+	}
+
+	int x = ioctl(fd, SPI_IOC_MESSAGE(required), &mesg);
+	free(mesg);
+	if (x < 0) perror("possible fail in spi transfer: ");
+	return x;
 }
 
 namespace elan {
