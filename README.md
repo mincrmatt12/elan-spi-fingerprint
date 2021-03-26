@@ -39,6 +39,26 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 Note, for devices marked "not tested" for libfprint but which _do_ have a branch listed, you will probably need to modify the PID constants in `elanspi.h` based on which touchpad you have to get it to detect (and potentially work with) your
 sensor.
 
+## Testing the driver
+
+First, you should try out the prototype. It depends on `libudev` (installable on debian with `libudev-dev`) and is built with CMake.
+You should determine your _ACPI ID_ and _Touchpad PID_. You can find these by searching in `/sys`.
+
+Specifically, you can find the ACPI ID by finding a device like `spi-ELAN<some 4 digit hex number>` somewhere under `/sys/bus/spi/devices`. The ACPI id
+is then `ELAN<that 4 digit hex>`.
+
+The touchpad PID is the product ID for your touchpad's HID device (you can usually find references to this in `dmesg` output. You're looking for the second half of a `04f3:<4 digit hex number>` pair.)
+
+You can then put these as `ACPI_HID` and `TP_PID` in `proto/hkeyvalue.h`. If you're really stuck, you might be able
+to find them in the Windows registry and the `.inf` file for your fingerprint's windows driver, respectively.
+
+Once you've got these setup, you can try compiling the prototype (`cd proto; mkdir build; cd build; cmake ..; make`) and running it as `./proto udev`. In theory
+it'll spit out an image which you can try converting to a png with `tool/printdump.py`.
+
+If the driver complains it can't find an `spidev` device, you either don't have the right ACPI id set, or need to install the udev rules in `udev/99-elan-spi.rules`.
+
+If the prototype works, you can try using the libfprint driver. Make sure you build it with `-D drivers=all`.
+
 ## Prototype
 
 The `proto/` subfolder contains a prototype that tries to connect to a fingerprint sensor, calibrate it, and take an image. It then dumps the corrected 16-bit ADC data to a file. The `printdump.py` file in the `tool` subdirectory
