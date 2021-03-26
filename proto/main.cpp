@@ -50,32 +50,15 @@
 // Sensor settings from the registry
 #include "hkeyvalue.h"
 
-#define MAX_SPI_SIZE 2048
-
 // Helper routine for doing duplex
 auto SpiFullDuplex(int fd, uint8_t *rx_buffer, uint8_t *tx_buffer, size_t length) {
-	size_t required = length / MAX_SPI_SIZE;
-	if (required * MAX_SPI_SIZE < length) ++required;
-	spi_ioc_transfer *mesg = (spi_ioc_transfer *)malloc(sizeof(spi_ioc_transfer) * required);
-	memset(&mesg, 0, required * sizeof( spi_ioc_transfer));
+	spi_ioc_transfer mesg;
+	memset(&mesg, 0, sizeof mesg);
+	mesg.len = length;
+	mesg.rx_buf = (__u64)rx_buffer;
+	mesg.tx_buf = (__u64)tx_buffer;
 
-	for (int i = 0; i < required; ++i) {
-		if (i == required - 1) {
-			mesg[i].len = length % MAX_SPI_SIZE;
-			if (mesg[i].len == 0) mesg[i].len = MAX_SPI_SIZE;
-		}
-		else {
-
-			mesg[i].len = MAX_SPI_SIZE;
-		}
-		mesg[i].rx_buf = (__u64)(rx_buffer + i*MAX_SPI_SIZE);
-		mesg[i].tx_buf = (__u64)(tx_buffer + i*MAX_SPI_SIZE);
-	}
-
-	int x = ioctl(fd, SPI_IOC_MESSAGE(required), &mesg);
-	free(mesg);
-	if (x < 0) perror("possible fail in spi transfer: ");
-	return x;
+	return ioctl(fd, SPI_IOC_MESSAGE(1), &mesg);
 }
 
 namespace elan {
@@ -220,10 +203,8 @@ namespace elan {
 	void CaptureRawImageHV(int fd, int width, int height, uint16_t *raw_data_out) {
 		assert(width == 80 && height == 80);
 
-		uint8_t hardcoded_unclean_rx_buf[0x4102];
+		uint8_t hardcoded_unclean_rx_buf[0x4100];
 		memset(hardcoded_unclean_rx_buf, 0xff, sizeof hardcoded_unclean_rx_buf);
-		uint8_t output_buf[0x4102];
-		memset(output_buf, 0, sizeof output_buf);
 
 		// Send sensor command 0x1
 		{
@@ -240,11 +221,15 @@ namespace elan {
 		}
 
 		// Receieve entire image + pad
-		output_buf[0] = 0x10;
-		SpiFullDuplex(fd, hardcoded_unclean_rx_buf, output_buf, 0x4102);
+		uint8_t output_buf[2] = {0x10, 0x00};
+		write(fd, output_buf, 2);
+		for (int i = 0; i < 0x4100; i += 0x300) {
+			int amt = 0x4100 - i > 0x300 ? 0x300 : 0x4100 - i;
+			read(fd, hardcoded_unclean_rx_buf + i, amt);
+		}
 
 		uint16_t value = 0;
-		for (int i = 2, outptr = 0; i < 0x4102 && outptr < (width*height*2); ++i) {
+		for (int i = 0, outptr = 0; i < 0x4100 && outptr < (width*height*2); ++i) {
 			if (hardcoded_unclean_rx_buf[i] != 0xff) {
 				if (outptr % 2) {
 					value <<= 8;
