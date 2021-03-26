@@ -748,7 +748,7 @@ int main(int argc, char **argv) {
 	printf("After hardcoded lookup: (%d x %d) Version = %d\n", sensWidth, sensHeight, sensIcVersion);
 
 	bool sensIsOtp;
-	int sensId;
+	int sensId = -1;
 
 	for (int i = 0; i < elan::SensorTableLength; ++i) {
 		if (elan::SensorDataTable[i].width == sensWidth && elan::SensorDataTable[i].height == sensHeight && elan::SensorDataTable[i].ic_version == sensIcVersion) {
@@ -756,6 +756,11 @@ int main(int argc, char **argv) {
 			sensIsOtp = elan::SensorDataTable[i].is_otp_model;
 			break;
 		}
+	}
+
+	if (sensId == -1) {
+		puts("Unknown sensor type!");
+		return 1;
 	}
 
 	printf("Found sensor ID %d => [%s] (%d X %d) Version = %d; OTP = %d\n", sensId, elan::SensorNameTable[sensId], sensWidth, sensHeight, sensIcVersion, sensIsOtp);
