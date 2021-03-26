@@ -14,27 +14,27 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | ASUS VivoBook S15 S510UA (x510uar) | `ELAN7001` | `3057` | `eFSA96SA` (`0x6`) | Working (prototype+libfprint on `mincrmatt12/elan-spi`) | |
 | ASUS VivoBook S15 S510UN (x510un) | `ELAN7001` | unknown, probably `3057` | unknown, probably `eFSA96SA` (`0x6`) | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issuecomment-748479266) |
 | ASUS VivoBook S15 S530FN (x530fn) | `ELAN7001` | `3087` | unknown | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi-s530fn`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issue-703963799) |
-| ASUS ExpertBook B9400CEA | `ELAN70A1` | `3134` | `eFSA80SC` (`0xe`) | In progress (prototype only) | See [#2](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/2) |
+| ASUS ExpertBook B9400CEA | `ELAN70A1` | `3134` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#2](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/2) |
 
 ### Specific sensor status
 
-| Sensor Name/ID | Prototype status | Libfprint status |
-| :------- | -------- | --------------- |
-| `eFSA120S` (`0x0`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA120SA` (`0x1`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA160S` (`0x2`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA820R` (`0x3`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA519R` (`0x4`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA96S` (`0x5`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA96SA` (`0x6`) | Working | Working (on branch `mincrmatt12/elan-spi`) |
-| `eFSA96SB` (`0x7`) | Not tested, probably not working (version 2) | Not started |
-| `eFSA816RA` (`0x8`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA614RA` (`0x9`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA614RB` (`0xa`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA688RA` (`0xb`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA80SA` (`0xc`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA712RA` (`0xd`) | Not tested, probably not working | Not tested (try `mincrmatt12/elan-spi`) |
-| `eFSA80SC` (`0xe`) | In progress | Not started |
+| Sensor Name/ID | Prototype status | Libfprint status | Notes |
+| :------- | -------- | --------------- | ------- |
+| `eFSA120S` (`0x0`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA120SA` (`0x1`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA160S` (`0x2`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA820R` (`0x3`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA519R` (`0x4`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA96S` (`0x5`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA96SA` (`0x6`) | Working | Working (on branch `mincrmatt12/elan-spi`) | |
+| `eFSA96SB` (`0x7`) | Not tested, probably not working (version 2) | Not started | |
+| `eFSA816RA` (`0x8`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA614RA` (`0x9`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA614RB` (`0xa`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA688RA` (`0xb`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA80SA` (`0xc`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA712RA` (`0xd`) | Not tested, probably not working | Not tested (try `mincrmatt12/elan-spi`) | |
+| `eFSA80SC` (`0xe`) | Tentatively working | Not started (see [libfprint#1](https://github.com/mincrmatt12/libfprint/issues/1)) | Requires the kernel param `spidev.bufsiz` to be set to at least 16642. |
 
 Note, for devices marked "not tested" for libfprint but which _do_ have a branch listed, you will probably need to modify the PID constants in `elanspi.h` based on which touchpad you have to get it to detect (and potentially work with) your
 sensor.

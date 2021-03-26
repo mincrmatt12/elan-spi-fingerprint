@@ -3,7 +3,9 @@ registers:
 0x5 - gain
 0x6 - dac calibration
 0x7 - dac calibration 2
-0x0 - write protect: this is set to 0x5a before most operations
+0x0 - write protect?: this is set to 0x5a before most operations
+0x2a: Function_En: probably something to do with enabling stuff
+      0x5f/0x4f are apparently "sensing mode"
 
 SPI Status:
 
