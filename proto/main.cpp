@@ -203,8 +203,10 @@ namespace elan {
 	void CaptureRawImageHV(int fd, int width, int height, uint16_t *raw_data_out) {
 		assert(width == 80 && height == 80);
 
-		uint8_t hardcoded_unclean_rx_buf[0x4100];
+		uint8_t hardcoded_unclean_rx_buf[0x4102];
 		memset(hardcoded_unclean_rx_buf, 0xff, sizeof hardcoded_unclean_rx_buf);
+		uint8_t output_buf[0x4102];
+		memset(output_buf, 0, sizeof output_buf);
 
 		// Send sensor command 0x1
 		{
@@ -221,15 +223,11 @@ namespace elan {
 		}
 
 		// Receieve entire image + pad
-		uint8_t output_buf[2] = {0x10, 0x00};
-		write(fd, output_buf, 2);
-		for (int i = 0; i < 0x4100; i += 0x300) {
-			int amt = 0x4100 - i > 0x300 ? 0x300 : 0x4100 - i;
-			read(fd, hardcoded_unclean_rx_buf + i, amt);
-		}
+		output_buf[0] = 0x10;
+		SpiFullDuplex(fd, hardcoded_unclean_rx_buf, output_buf, 0x4102);
 
 		uint16_t value = 0;
-		for (int i = 0, outptr = 0; i < 0x4100 && outptr < (width*height*2); ++i) {
+		for (int i = 2, outptr = 0; i < 0x4102 && outptr < (width*height*2); ++i) {
 			if (hardcoded_unclean_rx_buf[i] != 0xff) {
 				if (outptr % 2) {
 					value <<= 8;
