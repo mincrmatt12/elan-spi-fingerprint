@@ -2,11 +2,17 @@ import struct
 from PIL import Image
 import sys
 
+if len(sys.argv) != 6:
+    print("usage: printdump input_raw output_unprocessed.png output_processed.png sensor_width sensor_height")
+
 with open(sys.argv[1], "rb") as f:
     data = f.read()
 
+width = int(sys.argv[4])
+height = int(sys.argv[5])
+
 image_data = []
-for i in range(96*96):
+for i in range(width*height):
     image_data.append(struct.unpack_from("<H", data, i*2)[0])
 
 mini = min(image_data)
@@ -18,11 +24,11 @@ rx = 256 / (maxi - mini)
 
 real_data = [int(rx * (v - mini)) for v in image_data]
 
-im = Image.new("L", (96, 96))
+im = Image.new("L", (width, height))
 
-for y in range(96):
-    for x in range(96):
-        im.putpixel((x, y), real_data[y * 96 + x])
+for y in range(height):
+    for x in range(width):
+        im.putpixel((x, y), real_data[y * width + x])
 
 im.save(sys.argv[2])
 
@@ -45,8 +51,8 @@ def lookup(val):
 
 real_data = [int(lookup(v)) for v in image_data]
 
-for y in range(96):
-    for x in range(96):
-        im.putpixel((x, y), 255-real_data[y * 96 + x])
+for y in range(height):
+    for x in range(width):
+        im.putpixel((x, y), 255-real_data[y * width + x])
 
 im.save(sys.argv[3])
