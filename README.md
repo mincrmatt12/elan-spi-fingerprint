@@ -14,7 +14,7 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | ASUS VivoBook S15 S510UA (x510uar) | `ELAN7001` | `3057` | `eFSA96SA` (`0x6`) | Working (prototype+libfprint on `mincrmatt12/elan-spi`) | |
 | ASUS VivoBook S15 S510UN (x510un) | `ELAN7001` | unknown, probably `3057` | unknown, probably `eFSA96SA` (`0x6`) | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issuecomment-748479266) |
 | ASUS VivoBook S15 S530FN (x530fn) | `ELAN7001` | `3087` | unknown | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi-s530fn`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issue-703963799) |
-| ASUS VivoBook S13 S330FA (x330fa) | `ELAN7001` | `30b2` | probably `eFSA80SC` (`0xe`) | Not working (reset fail) | See [#3](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/3) |
+| ASUS VivoBook S13 S330FA (x330fa) | `ELAN7001` | `30b2` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#3](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/3) |
 | ASUS ExpertBook B9400CEA | `ELAN70A1` | `3134` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#2](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/2) |
 
 ### Specific sensor status
@@ -35,7 +35,7 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | `eFSA688RA` (`0xb`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
 | `eFSA80SA` (`0xc`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
 | `eFSA712RA` (`0xd`) | Not tested, probably not working | Not tested (try `mincrmatt12/elan-spi`) | |
-| `eFSA80SC` (`0xe`) | Tentatively working | Not started (see [libfprint#1](https://github.com/mincrmatt12/libfprint/issues/1)) | Requires the kernel param `spidev.bufsiz` to be set to at least 16642. |
+| `eFSA80SC` (`0xe`) | Tentatively working | Not started (see [libfprint#1](https://github.com/mincrmatt12/libfprint/issues/1)) | Requires the kernel param `spidev.bufsiz` to be set to at least 16642 (try the included modprobe conf file). |
 
 Note, for devices marked "not tested" for libfprint but which _do_ have a branch listed, you will probably need to modify the PID constants in `elanspi.h` based on which touchpad you have to get it to detect (and potentially work with) your
 sensor.

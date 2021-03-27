@@ -765,6 +765,10 @@ int main(int argc, char **argv) {
 
 	printf("Found sensor ID %d => [%s] (%d X %d) Version = %d; OTP = %d\n", sensId, elan::SensorNameTable[sensId], sensWidth, sensHeight, sensIcVersion, sensIsOtp);
 
+	if (sensId == 0xe) {
+		puts("====\nyou have a 80SC, if you haven't setup spidev with a large enough bufsiz _this will not work properly_\n===");
+	}
+
 	puts("SoftwareReset...");
 	elan::SoftwareReset(spi_fd);
 
