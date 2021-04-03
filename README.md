@@ -17,6 +17,7 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | ASUS VivoBook S15 S530FN (x530fn) | `ELAN7001` | `3087` | unknown | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi-s530fn`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issue-703963799) |
 | ASUS VivoBook S13 S330FA (x330fa) | `ELAN7001` | `30b2` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#3](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/3) |
 | ASUS ExpertBook B9400CEA | `ELAN70A1` | `3134` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#2](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/2) |
+| ASUS ExpertBook P2451FA | `ELAN7001` | `3148` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#4](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/4) |
 
 ### Specific sensor status
 
@@ -36,7 +37,7 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | `eFSA688RA` (`0xb`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
 | `eFSA80SA` (`0xc`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
 | `eFSA712RA` (`0xd`) | Not tested, probably not working | Not tested (try `mincrmatt12/elan-spi`) | |
-| `eFSA80SC` (`0xe`) | Tentatively working | Not started (see [libfprint#1](https://github.com/mincrmatt12/libfprint/issues/1)) | Requires the kernel param `spidev.bufsiz` to be set to at least 16642 (try the included modprobe conf file). |
+| `eFSA80SC` (`0xe`) | Tentatively working | In progress (on `mincrmatt12/elan-spi-new`; see [libfprint#1](https://github.com/mincrmatt12/libfprint/issues/1)) | Requires the kernel param `spidev.bufsiz` to be set to at least 16642 (try the included modprobe conf file). |
 
 Note, for devices marked "not tested" for libfprint but which _do_ have a branch listed, you will probably need to modify the PID constants in `elanspi.h` based on which touchpad you have to get it to detect (and potentially work with) your
 sensor.
