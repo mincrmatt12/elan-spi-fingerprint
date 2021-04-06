@@ -37,7 +37,7 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | `eFSA688RA` (`0xb`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
 | `eFSA80SA` (`0xc`) | Not tested, probably working | Not tested (try `mincrmatt12/elan-spi`) | |
 | `eFSA712RA` (`0xd`) | Not tested, probably not working | Not tested (try `mincrmatt12/elan-spi`) | |
-| `eFSA80SC` (`0xe`) | Tentatively working | In progress (on `mincrmatt12/elan-spi-new`; see [libfprint#1](https://github.com/mincrmatt12/libfprint/issues/1)) | Requires the kernel param `spidev.bufsiz` to be set to at least 16642 (try the included modprobe conf file). |
+| `eFSA80SC` (`0xe`) | Tentatively working | Possibly working; needs testing (on `mincrmatt12/elan-spi-new`; see [libfprint#1](https://github.com/mincrmatt12/libfprint/issues/1)) | Requires the kernel param `spidev.bufsiz` to be set to at least 16642 (try the included modprobe conf file). |
 
 Note, for devices marked "not tested" for libfprint but which _do_ have a branch listed, you will probably need to modify the PID constants in `elanspi.h` based on which touchpad you have to get it to detect (and potentially work with) your
 sensor.
@@ -61,6 +61,9 @@ it'll spit out an image which you can try converting to a png with `tool/printdu
 If the driver complains it can't find an `spidev` device, you either don't have the right ACPI id set, or need to install the udev rules in `udev/99-elan-spi.rules`.
 
 If the prototype works, you can try using the libfprint driver. Make sure you build it with `-D drivers=all`.
+
+**NOTE: the old branches `elan-spi` and `elan-spi-s530fn` are going to get phased out in favour of `elan-spi-new`.** `elan-spi-new` should theoretically be working
+for _all_ the devices that work on the prototype, but due to some upstream nonsense in libfprint (which will probably be resolved very soon) requires manual tweaking to test. If you want to try it (and in theory it'll work better since it does stuff like scaling the output image) see the comments [here](https://github.com/mincrmatt12/libfprint/issues/1#issuecomment-813842140)
 
 ## Prototype
 
