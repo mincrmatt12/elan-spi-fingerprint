@@ -15,9 +15,9 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | ASUS VivoBook S15 S510UQ (x510uq) | `ELAN7001` | `3057` | `eFSA96SA` (`0x6`) | Working (prototype+libfprint on `mincrmatt12/elan-spi`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issuecomment-808816749) for a potentially required patch |
 | ASUS VivoBook S15 S510UN (x510un) | `ELAN7001` | unknown, probably `3057` | unknown, probably `eFSA96SA` (`0x6`) | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issuecomment-748479266) |
 | ASUS VivoBook S15 S530FN (x530fn) | `ELAN7001` | `3087` | unknown | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi-s530fn`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issue-703963799) |
-| ASUS VivoBook S13 S330FA (x330fa) | `ELAN7001` | `30b2` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#3](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/3) |
-| ASUS ExpertBook B9400CEA | `ELAN70A1` | `3134` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#2](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/2) |
-| ASUS ExpertBook P2451FA | `ELAN7001` | `3148` | `eFSA80SC` (`0xe`) | Tentatively working (prototype only) | See [#4](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/4) |
+| ASUS VivoBook S13 S330FA (x330fa) | `ELAN7001` | `30b2` | `eFSA80SC` (`0xe`) | Tentatively working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | See [#3](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/3) |
+| ASUS ExpertBook B9400CEA | `ELAN70A1` | `3134` | `eFSA80SC` (`0xe`) | Tentatively working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | See [#2](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/2) |
+| ASUS ExpertBook P2451FA | `ELAN7001` | `3148` | `eFSA80SC` (`0xe`) | Tentatively working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | See [#4](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/4) |
 
 ### Specific sensor status
 
@@ -63,7 +63,7 @@ If the driver complains it can't find an `spidev` device, you either don't have 
 If the prototype works, you can try using the libfprint driver. Make sure you build it with `-D drivers=all`.
 
 **NOTE: the old branches `elan-spi` and `elan-spi-s530fn` are going to get phased out in favour of `elan-spi-new`.** `elan-spi-new` should theoretically be working
-for _all_ the devices that work on the prototype, but due to some upstream nonsense in libfprint (which will probably be resolved very soon) requires manual tweaking to test. If you want to try it (and in theory it'll work better since it does stuff like scaling the output image) see the comments [here](https://github.com/mincrmatt12/libfprint/issues/1#issuecomment-813842140)
+for _all_ the devices that work on the prototype. If you want to try it (and in theory it'll work better since it does stuff like scaling the output image) see the comments [here](https://github.com/mincrmatt12/libfprint/issues/1#issuecomment-813842140)
 
 ## Prototype
 
