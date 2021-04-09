@@ -795,13 +795,14 @@ int main(int argc, char **argv) {
 
 	std::string fname;
 	
-	puts("I will wait for a finger to exist for a few frames before saving it. Where should i save it?");
+	puts("I will wait for a finger to exist for a few frames before saving it. Where should i save it? (enter path without extension)");
 	puts("Where to save dump (enter)");
 	std::cin >> fname;
 
 	uint16_t data[sensWidth * sensHeight];
 
 	int downcounter = 0;
+	bool done = false;
 	while (true) {
 		(sensId == 0xe ? elan::CaptureRawImageHV : elan::CaptureRawImage)(spi_fd, sensWidth, sensHeight, data);
 		elan::CorrectWithBg(sensWidth, sensHeight, data, bg_data);
@@ -814,18 +815,21 @@ int main(int argc, char **argv) {
 				puts("FP exist");
 				++downcounter;
 				printf("downcount %d\n", downcounter);
-				if (downcounter >= 10) goto done_loop;
+				if (downcounter >= 10) {
+					done = true;
+					std::ofstream out_fd(fname + "-" + std::to_string(downcounter - 10), std::ios::out | std::ios::binary | std::ios::trunc);
+					out_fd.write((char*)data, sensWidth * sensHeight * 2);
+				}
 				break;
 			default:
 				puts("EMPTY");
 				downcounter = 0;
+				if (done) goto done_loop;
 				break;
 		}
 	}
 	
 done_loop:
-	std::ofstream out_fd(fname, std::ios::out | std::ios::binary | std::ios::trunc);
-	out_fd.write((char*)data, sensWidth * sensHeight * 2);
 
 	puts("Wrote out!");
 	puts("Done..");
