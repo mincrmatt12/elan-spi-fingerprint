@@ -815,9 +815,9 @@ int main(int argc, char **argv) {
 				puts("FP exist");
 				++downcounter;
 				printf("downcount %d\n", downcounter);
-				if (downcounter >= 10) {
+				if (downcounter >= 5) {
 					done = true;
-					std::ofstream out_fd(fname + "-" + std::to_string(downcounter - 10), std::ios::out | std::ios::binary | std::ios::trunc);
+					std::ofstream out_fd(fname + "-" + std::to_string(downcounter - 5), std::ios::out | std::ios::binary | std::ios::trunc);
 					out_fd.write((char*)data, sensWidth * sensHeight * 2);
 				}
 				break;
