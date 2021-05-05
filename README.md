@@ -12,6 +12,7 @@ preexisting `libfprint` USB elantech driver, which is already merged into mainli
 | Laptop | ACPI ID | Touchpad HID PID | Sensor name | Status | Notes |
 | :------- | ---- | ---- | ------- | :--------: | :----------- |
 | ASUS VivoBook S15 S510UA (x510uar) | `ELAN7001` | `3057` | `eFSA96SA` (`0x6`) | Working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | |
+| ASUS VivoBook 14  F412FJ | `ELAN7001` | `30C6` | `eFSA96SA` (`0x6`) | Working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | See [#5](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/5) |
 | ASUS VivoBook S15 S510UQ (x510uq) | `ELAN7001` | `3057` | `eFSA96SA` (`0x6`) | Working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issuecomment-808816749) (patch no longer required) |
 | ASUS VivoBook S15 S510UN (x510un) | `ELAN7001` | unknown, probably `3057` | unknown, probably `eFSA96SA` (`0x6`) | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issuecomment-748479266) |
 | ASUS VivoBook S15 S530FN (x530fn) | `ELAN7001` | `3087` | unknown | Potentially working (prototype+libfprint on `mincrmatt12/elan-spi-new`) | See [#1](https://github.com/mincrmatt12/elan-spi-fingerprint/issues/1#issue-703963799) |
