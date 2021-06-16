@@ -107,6 +107,7 @@ namespace elan {
 	}
 
 	auto DoHidReset(const char *hidpath) {
+#ifndef NO_HID
 		// Send feature 0xe
 
 		int fd = open(hidpath, O_RDWR);
@@ -129,6 +130,9 @@ namespace elan {
 		usleep(20000);
 
 		return result;
+#else
+		return 0;
+#endif
 	}
 
 	void SetOTPParameters(int spi_fd) {
@@ -602,6 +606,7 @@ int main(int argc, char **argv) {
 		}
 
 		{
+#ifndef NO_HID
 			udev_enumerate *e = udev_enumerate_new(udev);
 			udev_enumerate_add_match_subsystem(e, "hidraw");
 
@@ -646,6 +651,7 @@ int main(int argc, char **argv) {
 			}
 
 			udev_enumerate_unref(e);
+#endif
 		}
 
 		udev_unref(udev);
@@ -655,10 +661,12 @@ int main(int argc, char **argv) {
 		located_hid_path = argv[2];
 	}
 
+#ifndef NO_HID
 	if (located_hid_path.empty() || located_spi_path.empty()) {
 		puts("Failed to detect SPI or HID!");
 		return 1;
 	}
+#endif
 
 	// Ok, we now have a /dev/hidraw and /dev/spidev
 	printf("Got SPI = %s and HID = %s, opening.\n", located_spi_path.c_str(), located_hid_path.c_str());
