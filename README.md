@@ -1,3 +1,12 @@
+
+---
+
+**NOTE: this repo is mostly obsolete now since the driver has been merged into `libfprint` master. If you encounter problems with the version there use `libfprint`'s issue tracker instead, please.**
+
+---
+
+
+
 # elan-spi-fingerprint
 
 Reverse engineering the SPI elantech fingerprint sensor drivers. These seem to appear a lot in asus laptops, especially those with the fingerprint in the touchpad.
